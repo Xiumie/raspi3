@@ -3,8 +3,13 @@
 import RPi.GPIO as GPIO
 import time
 import sys
+import requests
+import json
 import socket
 import urllib
+import os
+import string
+from BMP180 import BMP180
 #gpio's :
 SCLK = 24
 DIN = 22
@@ -108,34 +113,101 @@ font =[
 0x10, 0x08, 0x08, 0x10, 0x08,
 ]
 
+flgsen = 0 #设置是否发送到yeelnik
+
 def main():
-  begin(0xbc) # contrast - may need tweaking for each display
-  gotoxy(4,0)
-  text("WELCOME TO PI")
-  check_network()
-  s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-  s.connect(("1.1.1.1", 80))
-  ipaddr = s.getsockname()[0]
-  s.close()
-  gotoxy(0,4)
-  text(ipaddr)
+	begin(0xbc) # contrast - may need tweaking for each display
+	if check_network() == True:
+		flgsen = 1
+		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		s.connect(("1.1.1.1", 80))
+		ipaddr = s.getsockname()[0]
+		s.close()
+		gotoxy(0,0)
+		text(ipaddr)
+	
+	cpu_tmp = get_CPU_temp()
+	gpu_tmp = get_GPU_temp()
+	
+	if flgsen == 1:
+		apiurl = 'http://api.yeelink.net/v1.1/device'
+		apiheaders = {'U-Apikey': '', 'content-type': 'application/json'}
+		payload = {'value': cpu_tmp}
+		r = requests.post(apiurl, headers=apiheaders, data=json.dumps(payload))
+		if r.status_code == 200:
+			print 'cpu temp success'
+		else:
+			print 'cpu temp failure'
+	
+	gotoxy(0,2)
+	cpu_tmp = 'C:' + cpu_tmp 
+	text(cpu_tmp)
+	gotoxy(6*7,2)
+	gpu_tmp = 'G:' + gpu_tmp
+	text(gpu_tmp)
+	
+	gotoxy(0,5)
+	text(time.strftime("%m-%d %H:%M:%S", time.localtime()))
+	
+	print cpu_tmp, gpu_tmp
+	
+	bmptemp, bmppre, bmpalt = bmp180()
+	
+	if flgsen == 1:
+		apiurl = 'http://api.yeelink.net/v1.1/device'
+		apiheaders = {'U-Apikey': '', 'content-type': 'application/json'}
+		payload = {'value': bmptemp}
+		r = requests.post(apiurl, headers=apiheaders, data=json.dumps(payload))
+		if r.status_code == 200:
+			print 'BMP180 temp success'
+		else:
+			print 'BMP180 temp failure'
+
+		apiurl = 'http://api.yeelink.net/v1.1/device'
+		apiheaders = {'U-Apikey': '', 'content-type': 'application/json'}
+		payload = {'value': bmppre}
+		r = requests.post(apiurl, headers=apiheaders, data=json.dumps(payload))
+		if r.status_code == 200:
+			print 'BMP180 pre success'
+		else:
+			print 'BMP180 pre failure'
+
+	sbmptemp = str(bmptemp)
+	sbmppre = str(bmppre)
+	sbmp180 = 'T:' + sbmptemp + ' ' + sbmppre
+	gotoxy(0,3)
+	text(sbmp180)
+	#GPIO.cleanup()
+	print bmptemp, bmppre, bmpalt
+
+def bmp180():
+	bmp=BMP180()
+	bmp180temp=bmp.read_temperature()
+	bmp180pre=bmp.read_pressure()
+	bmp180alt=bmp.read_altitude()
+	return bmp180temp,bmp180pre,bmp180alt
 
 def check_network():
 	cnt = 0
 	while cnt <= 10:
 		try:
-			result = urllib.urlopen('http://baidu.com').read()
-  			gotoxy(0,2)
-			text("Have Internet!")
-			break
+			result = urllib.urlopen('https://www.baidu.com/').read()
+			return True
 		except Exception , e:
-  			gotoxy(0,2)
-			text("No Internet!  ")
-			time.sleep(5)
+			gotoxy(0,0)
+			text("No Network!   ")
+			time.sleep(3)
 		cnt += 1
-		if cnt == 9:
-			time.sleep(60)
-	return True
+	return False
+
+def get_CPU_temp():
+	f = file("/sys/class/thermal/thermal_zone0/temp")
+	temp = float(f.read().strip("\n"))/1000
+	return "%.1f" % temp
+
+def get_GPU_temp():
+	status = os.popen("/opt/vc/bin/vcgencmd measure_temp").read().strip("\n")
+	return status.split("=")[1].replace("\'C", "")
 
 def gotoxy(x,y):
   lcd_cmd(x+128)
@@ -152,6 +224,8 @@ def display_char(char):
       lcd_data(font[index+i])
     lcd_data(0) # space inbetween characters
   elif ord(char)==32:
+      lcd_data(0)
+      lcd_data(0)
       lcd_data(0)
       lcd_data(0)
       lcd_data(0)
