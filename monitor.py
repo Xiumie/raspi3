@@ -3,9 +3,11 @@
 
 import RPi.GPIO as GPIO
 import time
+import sys, os
+import subprocess
 
 class Monitor(object):
-    def __init__(self, updown_pin=20, rightleft_pin=21, ud_angle=60, rl_angle=90):
+    def __init__(self, updown_pin=20, rightleft_pin=21, ud_angle=60, rl_angle=10):
         # 初始化配置
         self.__updown_pin = updown_pin
         self.__rightleft_pin = rightleft_pin
@@ -62,7 +64,7 @@ class Monitor(object):
         self.__ud.ChangeDutyCycle(2.5 + 10*self.__ud_angle/180)
         time.sleep(0.02)
         self.__ud.ChangeDutyCycle(0)
-        time.sleep(0.5)
+        time.sleep(0.1)
         
     def down(self):
         if 0 <= self.__ud_angle < 180:
@@ -72,7 +74,7 @@ class Monitor(object):
         self.__ud.ChangeDutyCycle(2.5 + 10*self.__ud_angle/180)
         time.sleep(0.02)
         self.__ud.ChangeDutyCycle(0)
-        time.sleep(0.5)
+        time.sleep(0.1)
         
     def right(self):
         if 0 <= self.__rl_angle < 180:
@@ -82,7 +84,7 @@ class Monitor(object):
         self.__rl.ChangeDutyCycle(2.5 + 10*self.__rl_angle/180)
         time.sleep(0.02)
         self.__rl.ChangeDutyCycle(0)
-        time.sleep(0.5)
+        time.sleep(0.1)
         
     def left(self):
         if 0 < self.__rl_angle <= 180:
@@ -92,11 +94,38 @@ class Monitor(object):
         self.__rl.ChangeDutyCycle(2.5 + 10*self.__rl_angle/180)
         time.sleep(0.02)
         self.__rl.ChangeDutyCycle(0)
-        time.sleep(0.5)
+        time.sleep(0.1)
         
 if __name__ == '__main__':
     clouldmon = Monitor()
-    clouldmon.set_angle(145,100)
-    while(True):
-        clouldmon.right()
-        time.sleep(0.5)
+    try:
+        while True:
+            os.chdir("/var/www/html/img")
+            cmd = 'sudo raspistill -o 1.jpg -t 1000 -rot 180'
+            pid = subprocess.call(cmd, shell=True)
+            clouldmon.set_angle(60,90)
+            cmd = 'sudo raspistill -o 2.jpg -t 1000 -rot 180'
+            pid = subprocess.call(cmd, shell=True)
+            clouldmon.set_angle(60,170)
+            cmd = 'sudo raspistill -o 3.jpg -t 1000 -rot 180'
+            pid = subprocess.call(cmd, shell=True)
+            print "ok"
+            time.sleep(60*10)
+            
+            os.chdir("/var/www/html/img")
+            cmd = 'sudo raspistill -o 3.jpg -t 1000 -rot 180'
+            pid = subprocess.call(cmd, shell=True)
+            clouldmon.set_angle(60,90)
+            cmd = 'sudo raspistill -o 2.jpg -t 1000 -rot 180'
+            pid = subprocess.call(cmd, shell=True)
+            clouldmon.set_angle(60,10)
+            cmd = 'sudo raspistill -o 1.jpg -t 1000 -rot 180'
+            pid = subprocess.call(cmd, shell=True)
+            print "ok"
+            time.sleep(60*10)
+            
+    except Exception, e:
+        clouldmon.stop()
+        print str(e)
+        
+
