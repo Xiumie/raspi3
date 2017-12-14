@@ -14,3 +14,5 @@ youmzi2.py: 妹子图爬虫
 monitor.py：sg90舵机云台，整合控制，树莓派2 b+ +原装摄像头实现监控
 
 info.py: 爬虫，抓取信息，主要使用pytesseract识别验证码，使用cookie，使用了openpyxl对xlsx数据表格进行信息获取
+
+$$\sum_{i=1}^n a_i=0$$
